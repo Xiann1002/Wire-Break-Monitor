@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>断线挽救监控看板 · Wire Break Recovery Monitoring</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0f2138; --navy2:#16324f; --steel:#3d5a73; --slate:#607d8b;
+  --cyan:#0891a8; --cyan-soft:#e3f3f5;
+  --bg:#f4f6f8; --card:#ffffff; --line:#dde3e8;
+  --ink:#152233; --ink2:#5b6b78;
+  --ok:#1e8e5a; --ok-bg:#e5f5ec; --warn:#b5760a; --warn-bg:#fbf1e0;
+  --err:#c23b3b; --err-bg:#faeaea; --grey:#8896a2; --grey-bg:#eef1f3;
+  --sh1:rgba(15,33,56,.12); --sh2:rgba(255,255,255,.75);
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b1420; --card:#111f30; --line:#233246; --ink:#e7edf3; --ink2:#9fb0bd; --cyan-soft:#0f2c33;--grey-bg:#1b2634;
+  --sh1:rgba(0,0,0,.55); --sh2:rgba(255,255,255,.04);
+}}
+:root[data-theme="dark"]{--bg:#0b1420; --card:#111f30; --line:#233246; --ink:#e7edf3; --ink2:#9fb0bd; --cyan-soft:#0f2c33;--grey-bg:#1b2634;
+  --sh1:rgba(0,0,0,.55); --sh2:rgba(255,255,255,.04);}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:'Segoe UI',Roboto,-apple-system,Arial,sans-serif;font-size:14px;line-height:1.5}
+.app{display:flex;min-height:100vh;width:100%}
+.side{width:240px;background:var(--navy);color:#cfe0ea;flex-shrink:0;display:flex;flex-direction:column;padding:18px 0;
+  background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:16px 16px;}
+.brand{padding:0 18px 16px;border-bottom:1px solid #223a52;margin-bottom:10px;display:flex;gap:10px;align-items:center}
+.brand .ic{font-size:22px}
+.brand b{color:#fff;font-size:15px;display:block}
+.brand span{font-size:11px;color:#8fa9bb}
+.nav a{display:flex;gap:8px;align-items:center;padding:9px 18px;color:#b7c9d5;text-decoration:none;font-size:13px;cursor:pointer;border-left:3px solid transparent}
+.nav a:hover{background:#16283b}
+.nav a.active{background:#132a40;color:#fff;border-left-color:var(--cyan);box-shadow:inset 0 1px 3px rgba(0,0,0,.4)}
+.nav .grp{font-size:10px;letter-spacing:.04em;color:#5f7c90;padding:14px 18px 4px}
+.main{flex:1 1 auto;min-width:0;width:100%;padding:20px 30px 40px}
+.fsbtn{position:fixed;top:10px;right:16px;z-index:50;background:var(--navy);color:#fff;border:none;padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;opacity:.85}
+.fsbtn:hover{opacity:1}
+h1{font-size:20px;margin:0 0 2px}
+.accent{height:3px;width:56px;border-radius:3px;background:linear-gradient(90deg,var(--cyan),var(--navy2));margin:6px 0 16px}
+.stripe{height:5px;border-radius:3px;background:repeating-linear-gradient(45deg,var(--warn) 0 8px,#1c1c1c 8px 16px);opacity:.85;margin:6px 0 16px}
+.brand .ic{animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-3px) rotate(4deg)}}
+.sub{color:var(--ink2);font-size:13px;margin:0 0 4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;box-shadow:5px 5px 12px var(--sh1),-3px -3px 10px var(--sh2)}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:16px}
+.kpi{border-left:4px solid var(--cyan);transition:.15s;box-shadow:6px 6px 14px var(--sh1),-6px -6px 14px var(--sh2)}
+.kpi:hover{transform:translateY(-3px) scale(1.01)}
+.kpis .kpi:nth-child(2){border-left-color:var(--steel)}
+.kpis .kpi:nth-child(3){border-left-color:var(--navy2)}
+.kpis .kpi:nth-child(4){border-left-color:var(--warn)}
+.kpis .kpi:nth-child(5){border-left-color:var(--ok)}
+.kpis .kpi:nth-child(6){border-left-color:var(--err)}
+.kpi .t{font-size:11px;color:var(--ink2);text-transform:uppercase;letter-spacing:.03em}
+.kpi .n{font-size:27px;font-weight:800;color:var(--navy2);margin:4px 0;text-shadow:1px 1px 0 var(--sh2)}
+:root[data-theme="dark"] .kpi .n,body:not([data-theme="light"]) .kpi .n{color:#7fd4e0}
+.kpi .u{color:var(--ink2);font-size:12px}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.b-mes{background:var(--ok-bg);color:var(--ok)}
+.b-manual{background:var(--cyan-soft);color:var(--cyan)}
+.b-dup{background:var(--warn-bg);color:var(--warn)}
+.b-conf{background:var(--err-bg);color:var(--err)}
+.b-unm{background:var(--grey-bg);color:var(--grey)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;color:var(--ink2);font-weight:600;padding:8px;border-bottom:2px solid var(--line);font-size:11px;text-transform:uppercase}
+td{padding:8px;border-bottom:1px solid var(--line)}
+tr:hover td{background:var(--cyan-soft)}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.btn{background:linear-gradient(180deg,#12aec4,var(--cyan));color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;
+  box-shadow:0 3px 0 #066979,0 5px 10px rgba(8,20,35,.25);transition:.08s;letter-spacing:.01em}
+.btn:active{transform:translateY(3px);box-shadow:0 0 0 #066979,0 1px 2px rgba(8,20,35,.2)}
+.btn.ghost{background:var(--card);color:var(--cyan);border:1.5px solid var(--cyan);box-shadow:0 3px 0 var(--line),0 4px 8px var(--sh1)}
+.btn.ghost:active{transform:translateY(3px);box-shadow:0 0 0 var(--line)}
+.btn.danger{background:linear-gradient(180deg,#e05555,var(--err));box-shadow:0 3px 0 #8a2424,0 5px 10px rgba(8,20,35,.25)}
+.btn.danger:active{box-shadow:0 0 0 #8a2424}
+.btn:hover{filter:brightness(1.05)}
+.gear{display:inline-block;transition:transform .5s}
+.btn:hover .gear{transform:rotate(90deg)}
+.nomes{color:var(--grey);font-style:italic;font-size:11px}
+.scrollx{overflow-x:auto}
+.scrollx table{font-size:11.5px;white-space:nowrap}
+.chartbox{position:relative;height:340px}
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px;margin-bottom:16px}
+input[type=number]{padding:8px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--card);color:var(--ink)}
+.upcard{border:1.5px dashed var(--line);border-radius:10px;padding:18px;flex:1;min-width:240px;text-align:center}
+.pastebox{width:100%;font-size:11px;font-family:'Consolas',monospace;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--card);color:var(--ink);resize:vertical}
+.status-ok{color:var(--ok);font-size:12px}
+.pill{background:var(--grey-bg);border-radius:8px;padding:10px;font-size:12px;color:var(--ink2)}
+.link{color:var(--cyan);cursor:pointer;text-decoration:underline}
+.empty{padding:40px 20px;text-align:center;color:var(--ink2)}
+.top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:10px}
+.chip{background:var(--ok-bg);color:var(--ok);border-radius:20px;padding:3px 10px;font-size:12px}
+.trace{border-left:3px solid var(--line);margin-left:8px;padding-left:16px}
+.src{margin-bottom:10px;padding:10px;border-radius:8px;background:var(--grey-bg)}
+.src.ok{background:var(--ok-bg)}
+input[type=text],input[type=date]{padding:8px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--card);color:var(--ink)}
+summary{outline:none}
+.donut{width:112px;height:112px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:5px 5px 12px var(--sh1),-5px -5px 12px var(--sh2)}
+.donut b{width:80px;height:80px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;box-shadow:inset 2px 2px 5px var(--sh1)}
+::-webkit-scrollbar{height:8px;width:8px}
+@media(max-width:820px){.side{position:fixed;left:-240px;top:0;bottom:0;z-index:20;transition:.2s}.side.open{left:0}.main{padding:14px}}
+
+/* ===== CUTE LAYER: WireGuard-style ===== */
+:root{--sky:#d9ebff;--blue1:#4d9bff;--blue2:#2f74e6;--blueD:#1f56b8}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--sky:#12233a}}
+:root[data-theme="dark"]{--sky:#12233a}
+body{font-family:'Nunito','Segoe UI',Roboto,Arial,sans-serif;font-weight:600;background-image:linear-gradient(180deg,var(--sky),transparent 340px);background-repeat:no-repeat}
+h1{font-size:25px;font-weight:900;letter-spacing:.2px}
+.accent{height:5px;width:74px;border-radius:9px;background:linear-gradient(90deg,#4d9bff,#ffb84d,#ff7a8a)}
+.stripe{display:none}
+.side{background:linear-gradient(180deg,#18386a,#0f2138 75%);background-image:none;border-radius:0 28px 28px 0;position:sticky;top:0;height:100vh;overflow-y:auto;align-self:flex-start;box-shadow:6px 0 24px rgba(15,33,56,.18)}
+.brand{border-bottom:0;gap:10px}
+.brand .ic{animation:none}.brand .ic svg{display:block}
+.nav a{margin:3px 14px;padding:10px 14px;border-radius:16px;border-left:0;font-weight:800;transition:.12s}
+.nav a:hover{background:rgba(255,255,255,.09);transform:translateX(3px)}
+.nav a.active{background:linear-gradient(180deg,var(--blue1),var(--blue2));color:#fff;box-shadow:0 4px 0 var(--blueD),0 8px 14px rgba(47,116,230,.35)}
+.sidefoot{margin-top:auto;padding:10px 16px 4px;text-align:center;position:relative}
+.sidefoot .bubble{background:#fff;color:#1b2a41;font-size:12px;font-weight:800;border-radius:16px;padding:8px 10px;margin-bottom:8px;position:relative}
+.sidefoot .bubble:after{content:"";position:absolute;left:50%;bottom:-6px;width:12px;height:12px;background:#fff;transform:translateX(-50%) rotate(45deg)}
+.card{border-radius:22px;border:1px solid rgba(120,150,200,.2);box-shadow:0 10px 28px rgba(60,100,160,.10)}
+.kpi{border-left:0;border-radius:22px;border:1px solid rgba(120,150,200,.18)}
+.kpi:hover{transform:translateY(-4px) rotate(-.6deg)}
+.kpis .kpi:nth-child(1){background:linear-gradient(135deg,rgba(76,201,140,.22),rgba(76,201,140,.05)),var(--card)}
+.kpis .kpi:nth-child(2){background:linear-gradient(135deg,rgba(255,170,60,.24),rgba(255,170,60,.05)),var(--card)}
+.kpis .kpi:nth-child(3){background:linear-gradient(135deg,rgba(77,155,255,.22),rgba(77,155,255,.05)),var(--card)}
+.kpis .kpi:nth-child(4){background:linear-gradient(135deg,rgba(160,110,255,.20),rgba(160,110,255,.05)),var(--card)}
+.kpis .kpi:nth-child(5){background:linear-gradient(135deg,rgba(255,110,120,.22),rgba(255,110,120,.05)),var(--card)}
+.kpis .kpi:nth-child(6){background:linear-gradient(135deg,rgba(40,200,190,.22),rgba(40,200,190,.05)),var(--card)}
+.kpi .t{display:flex;align-items:center;gap:8px;text-transform:none;font-size:12px;font-weight:800;letter-spacing:0}
+.kpi .t::before{display:inline-flex;flex:none;width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;background:rgba(255,255,255,.8);font-size:16px}
+.kpis .kpi:nth-child(1) .t::before{content:"🔧"}.kpis .kpi:nth-child(2) .t::before{content:"📏"}.kpis .kpi:nth-child(3) .t::before{content:"🎨"}
+.kpis .kpi:nth-child(4) .t::before{content:"💪"}.kpis .kpi:nth-child(5) .t::before{content:"🚨"}.kpis .kpi:nth-child(6) .t::before{content:"🛰️"}
+.kpi .n{font-size:32px;font-weight:900}
+.btn{border-radius:999px;background:linear-gradient(180deg,var(--blue1),var(--blue2));box-shadow:0 4px 0 var(--blueD),0 10px 16px rgba(47,116,230,.25);padding:10px 20px;font-weight:900}
+.btn:active{transform:translateY(4px);box-shadow:0 0 0 var(--blueD)}
+.btn:hover{transform:translateY(-1px);filter:none}
+.btn.ghost{background:var(--card);color:var(--blue2);border:2px solid var(--blue1);box-shadow:0 4px 0 rgba(77,155,255,.35)}
+.btn.danger{background:linear-gradient(180deg,#ff8a8a,#e04b5a);box-shadow:0 4px 0 #a52f3b,0 10px 16px rgba(224,75,90,.25)}
+.badge{border-radius:999px;padding:3px 11px;font-weight:800}
+th{background:rgba(77,155,255,.08);border-bottom:0;font-weight:800}
+th:first-child{border-radius:12px 0 0 12px}th:last-child{border-radius:0 12px 12px 0}
+td{border-bottom:1px dashed var(--line)}
+.upcard{border:2.5px dashed rgba(77,155,255,.45);border-radius:24px;background:linear-gradient(180deg,rgba(77,155,255,.07),transparent)}
+.upcard:nth-child(2){border-color:rgba(255,170,60,.55);background:linear-gradient(180deg,rgba(255,170,60,.08),transparent)}
+.upcard:nth-child(3){border-color:rgba(76,201,140,.55);background:linear-gradient(180deg,rgba(76,201,140,.08),transparent)}
+.pastebox,input[type=text],input[type=date],input[type=number]{border-radius:14px;border:2px solid var(--line)}
+.chip{border-radius:999px;font-weight:800}
+.empty svg{animation:bob 3s ease-in-out infinite}
+.fsbtn{border-radius:999px;font-weight:800;background:var(--blue2);box-shadow:0 3px 0 var(--blueD)}
+.menubtn{display:none;position:fixed;top:10px;left:10px;z-index:60;border:0;border-radius:14px;background:var(--blue2);color:#fff;font-size:18px;padding:6px 12px;box-shadow:0 3px 0 var(--blueD)}
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(230px,1fr) minmax(280px,1.15fr) minmax(250px,1fr);gap:14px;align-items:center;padding:18px 20px;border-radius:28px;margin-bottom:18px;position:relative;overflow:hidden;
+  background:radial-gradient(circle at 12% 15%,#fff8,transparent 30%),linear-gradient(135deg,#a9d8ff,#d7f0ff 50%,#cdf3df);box-shadow:0 14px 34px rgba(60,120,190,.22);color:#1b2a41}
+.hero:before{content:"☁️";position:absolute;top:8px;left:44%;font-size:34px;opacity:.85;animation:bob 6s ease-in-out infinite}
+.hero:after{content:"🌿";position:absolute;bottom:6px;right:38%;font-size:30px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;font-weight:900;margin-bottom:10px}
+.chips span{background:#fff;border-radius:999px;padding:4px 11px;box-shadow:0 2px 6px rgba(60,100,160,.15)}
+.hero h2{margin:0 0 4px;font-size:21px;font-weight:900}
+.hero .herol{display:flex;align-items:flex-end;gap:6px}
+.bubble2{background:#fff;border-radius:18px;padding:10px 12px;font-size:13px;font-weight:800;position:relative;box-shadow:0 4px 12px rgba(60,100,160,.18);max-width:160px;margin-bottom:34px}
+.bubble2:after{content:"";position:absolute;left:-6px;bottom:12px;width:12px;height:12px;background:#fff;transform:rotate(45deg)}
+.machine{width:100%;height:auto;max-height:230px;filter:drop-shadow(0 8px 10px rgba(15,33,56,.18))}
+.mlabel{display:inline-block;background:rgba(15,33,56,.75);color:#fff;font-size:11px;font-weight:800;border-radius:12px;padding:5px 10px;margin-bottom:4px}
+.wires line{stroke-dasharray:6 4;animation:wd .7s linear infinite}
+.ingot{animation:cut 4s ease-in-out infinite}
+.stack{animation:bob 2.6s ease-in-out infinite}
+.mascot{animation:bob 3s ease-in-out infinite;flex:none}
+@keyframes wd{to{stroke-dashoffset:-10}}
+@keyframes cut{0%,100%{transform:translateY(0)}50%{transform:translateY(12px)}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.ovwrap{background:#fffc;border-radius:22px;padding:12px;box-shadow:0 6px 18px rgba(60,100,160,.15)}
+.ovh{font-weight:900;font-size:14px;margin-bottom:8px}
+.ovgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ov{display:flex;gap:8px;align-items:center;border-radius:16px;padding:9px}
+.ov .ovi{width:32px;height:32px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
+.ov small{display:block;font-size:11px;font-weight:800;opacity:.75}.ov b{font-size:21px;font-weight:900}
+.ov.g{background:#dcf5e6}.ov.o{background:#ffe9cf}.ov.b{background:#dbeaff}.ov.r{background:#ffdfe2}
+@media(max-width:1100px){.hero{grid-template-columns:1fr}.hero:before,.hero:after{display:none}}
+@media(max-width:820px){.side{position:fixed;left:-260px;top:0;bottom:0;height:auto;z-index:55;transition:.2s}.side.open{left:0}.menubtn{display:block}.main{padding:54px 14px 30px}}
+</style>
+</head>
+<body>
+<button class="menubtn" onclick="document.getElementById('side').classList.toggle('open')">☰</button>
+<button class="fsbtn" onclick="toggleFullscreen()">⛶ Full Screen</button>
+<div class="app">
+  <div class="side" id="side">
+    <div class="brand"><span class="ic" id="brandic"></span><div><b>断线挽救监控看板</b><span>Wire Break Recovery Monitor</span></div></div>
+    <div class="nav" id="nav"></div>
+    <div class="sidefoot" id="sidefoot"></div>
+  </div>
+  <div class="main" id="main"></div>
+</div>
+
+<script>
+function toggleFullscreen(){
+  if(!document.fullscreenElement){ document.documentElement.requestFullscreen().catch(()=>{}); }
+  else { document.exitFullscreen(); }
+}
+/* ---------- CONFIG ---------- */
+const PAGES = [
+  {g:"PROCESS",id:"upload",zh:"数据导入",en:"Data Upload",ic:"📤"},
+  {g:"PROCESS",id:"recon",zh:"数据核对",en:"Data Reconciliation",ic:"🔎"},
+  {g:"ANALYZE",id:"dashboard",zh:"监控看板",en:"Dashboard",ic:"📊"},
+  {g:"ANALYZE",id:"rootcause",zh:"断线原因分析",en:"Root Cause Analysis",ic:"🧯"},
+  {g:"ANALYZE",id:"recovery",zh:"挽救措施分析",en:"Recovery Analysis",ic:"🛠️"},
+  {g:"ANALYZE",id:"employee",zh:"员工挽救分析",en:"Employee Analysis",ic:"👷"},
+  {g:"TRACE",id:"eventdetail",zh:"断线事件明细",en:"Event Details",ic:"🧾"},
+  {g:"TRACE",id:"ltssearch",zh:"LTS追溯查询",en:"LTS Search",ic:"🔗"},
+  {g:"ADMIN",id:"dataquality",zh:"MES数据完整性",en:"Data Quality",ic:"📐"},
+  {g:"ADMIN",id:"export",zh:"数据导出",en:"Export",ic:"📦"},
+];
+const ICONS={}; PAGES.forEach(p=>ICONS[p.id]=p.ic);
+const CFG = { assumedYear: 2026, cosThreshold: 0, cosTarget: 2, successTarget: 85 };
+const STORAGE_KEY="wireBreakTool_autosave_v1";
+function saveState(){
+  try{
+    const payload={savedAt:new Date().toISOString(),state:{mes:state.mes,chinese:state.chinese,local:state.local,events:state.events,
+      selectedEvent:state.selectedEvent,page:state.page,ltsQuery:state.ltsQuery,pasteText:state.pasteText,dashFrom:state.dashFrom,dashTo:state.dashTo,gran:state.gran},
+      cfg:{cosThreshold:CFG.cosThreshold,cosTarget:CFG.cosTarget,successTarget:CFG.successTarget}};
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }catch(e){ console.warn("Autosave failed (storage full or unavailable):", e.message); }
+}
+function loadState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return;
+    const payload=JSON.parse(raw); if(!payload||!payload.state) return;
+    Object.assign(state, payload.state);
+    if(payload.cfg) Object.assign(CFG, payload.cfg);
+    state.page="upload"; state._restoredAt=payload.savedAt;
+  }catch(e){ console.warn("Could not restore autosaved data:", e.message); }
+}
+const EMPLOYEE_MASTER = {"001905":{name:"Lin W."},"002112":{name:"Ali R."},"002094":{name:"Wong T."}};
+
+let state = { mes:[], chinese:[], local:[], events:[], selectedEvent:null, page:"upload", ltsQuery:"",
+  pasteText:{mes:"",chinese:"",local:""}, dashFrom:"", dashTo:"", gran:"day" };
+let charts=[];
+
+/* ---------- DEMO DATA (matches the three real templates after parsing) ---------- */
+function demoDataset(){
+  const mes=[],chi=[],loc=[];
+  const causes=["Wirebreak double 跳线","Less Epoxy 胶层抽空","Multiple tail","Wire issue"];
+  const en=["MOHD FAHMI AZREEN","TANELTER LIEW","LIONEL ANAK WHITE","ISZAL APRIANSYAH"], cn=["李磊","祝康","任亮","王晨"];
+  const machines=["EWS2-10","EWS2-21","EWS2-44"];
+  const d=day=>"2026-09-"+String(day).padStart(2,"0");
+  const addMes=o=>mes.push(Object.assign({id:"M"+mes.length,Shift:"DAY",ProductType:"M10-Q",Action:"Tie knot 重新接线",DiscardReason:"，断线 Wire Break Loss",EffWafer:4300,PassRate:93,WbLoss:100,GradeA:4200,RescuerId:"",RescuerName:"",Emp:null},o,{TotalCos:(o.As1||0)+(o.CosA||0)}));
+  addMes({Date:d(22),LTS:"WLQ226999210191",Machine:"EWS2-10",Cause:causes[0],Discard:40,As1:0,CosA:14,GradeA:4259,RescuerId:"524513",RescuerName:"MOHD FAHMI AZREEN BIN AHMAJAPARANG"});
+  chi.push({id:"C1",Date:d(22),Shift:"DAY",LTS:"WLQ226999210191",Machine:"EWS2-10",Cause:"跳线",Action:"接线正切",Discard:40,EmpName:null,Emp:null});
+  addMes({Date:d(23),LTS:"WLQ226999220540",Machine:"EWS2-48",ProductType:"M6",Cause:causes[1],Discard:45,As1:3,CosA:0,RescuerName:"李磊",Action:"Raise reinsert 纫线"});
+  loc.push({id:"L1",Date:d(23),Shift:"DAY",LTS:"WLQ226999220540",Machine:"EWS2-48",Cause:"Less Epoxy",Action:"Raise reinsert",Discard:48,Emp:"494982"});
+  chi.push({id:"C2",Date:d(22),Shift:"DAY",LTS:"WLQ226999220037",Machine:"EWS2-62",Cause:"抽空",Action:"焊线反切",Discard:45,EmpName:"祝康，焊线工",Emp:null});
+  chi.push({id:"C3",Date:d(23),Shift:"DAY",LTS:"WLQ226999220505",Machine:"EWS2-28",Cause:"跳断",Action:"刃线，焊线",Discard:380,EmpName:"任亮",Emp:null});
+  loc.push({id:"L2",Date:d(23),Shift:"DAY",LTS:"WLQ226999220505",Machine:"EWS2-28",Cause:"跳断",Action:"tie knot",Discard:120,Emp:"CST"});
+  for(let i=0;i<48;i++){
+    const r=(i*37+11)%10, as1=r<4?0:(r*5)%23, cosA=r<4?0:r%3, eff=4200+((i*53)%400);
+    const isCn=i%3===0, lts="WLQ22699922"+(1000+i), day=10+(i%14), prod=i%2?"M6":"M10-Q", m=machines[i%3];
+    addMes({Date:d(day),LTS:lts,Machine:m,ProductType:prod,Shift:i%2?"DAY":"NIGHT",Cause:causes[i%4],Discard:20+((i*13)%60),As1:as1,CosA:cosA,EffWafer:eff,
+      GradeA:eff-as1-cosA-((i*7)%150),PassRate:+(90+(i%9)+0.3).toFixed(2),WbLoss:(i*29)%300,
+      RescuerId:isCn?"":String(490000+i*7),RescuerName:isCn?cn[i%4]:en[i%4],Action:i%3?"Tie knot 重新接线":"Raise reinsert 纫线"});
+    if(i%4===1) chi.push({id:"CX"+i,Date:d(day),Shift:i%2?"DAY":"NIGHT",LTS:lts,Machine:m,Cause:causes[i%4],Action:"接线正切",Discard:20+((i*13)%60),EmpName:cn[i%4],Emp:null});
+    if(i%4===2) loc.push({id:"LX"+i,Date:d(day),Shift:i%2?"DAY":"NIGHT",LTS:lts,Machine:m,Cause:causes[i%4],Action:"tie knot",Discard:20+((i*13)%60),Emp:String(490000+i*7)});
+  }
+  return {mes,chi,loc};
+}
+
+/* ---------- PARSING: quote-aware TSV/CSV (handles multi-line Excel header cells) ---------- */
+function parseDelimited(text){
+  const delim = text.includes("\t") ? "\t" : ",";
+  const rows=[]; let row=[]; let field=""; let inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(inQuotes){
+      if(ch==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQuotes=false; }
+      else field+=ch;
+    } else {
+      if(ch==='"') inQuotes=true;
+      else if(ch===delim){ row.push(field); field=""; }
+      else if(ch==='\n'){ row.push(field); rows.push(row); row=[]; field=""; }
+      else if(ch==='\r'){}
+      else field+=ch;
+    }
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r=>r.some(c=>String(c).trim()!==""));
+}
+function colIndex(headers,keywords){ return headers.findIndex(h=>keywords.some(k=>String(h).toLowerCase().includes(k))); }
+function normalizeDate(str){
+  if(!str) return null; str=String(str).trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0,10);
+  const m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m){ let mo=+m[1],da=+m[2],yr=+m[3]; if(mo>12){[mo,da]=[da,mo];} return yr+"-"+String(mo).padStart(2,"0")+"-"+String(da).padStart(2,"0"); }
+  return str;
+}
+function normalizeMachine(v){ if(v==null) return null; const s=String(v).trim(); if(!s) return null; if(/^\d+$/.test(s)) return "EWS2-"+s; return s.toUpperCase(); }
+function parseChineseDateShift(v){
+  if(!v) return {date:null,shift:null};
+  const s=String(v).trim();
+  const m=s.match(/^(\d{1,2})\.(\d{1,2})\s*(白|夜)?/);
+  if(m){ const mo=+m[1],da=+m[2]; const shift=m[3]==="夜"?"NIGHT":(m[3]==="白"?"DAY":null);
+    return {date:CFG.assumedYear+"-"+String(mo).padStart(2,"0")+"-"+String(da).padStart(2,"0"), shift}; }
+  return {date:s,shift:null};
+}
+function stdShift(v){ if(!v)return null; const s=String(v).trim(); if(/^(D|Day|白|白班)$/i.test(s))return "DAY"; if(/^(N|Night|夜|夜班)$/i.test(s))return "NIGHT"; return s.toUpperCase(); }
+function stdAction(v){ if(!v)return null; const s=String(v).toLowerCase(); if(s.includes("knot")||s.includes("接线")||s.includes("刃线"))return "KNOT/RECONNECT"; if(s.includes("reinsert")||s.includes("纫线"))return "REINSERT"; if(s.includes("weld")||s.includes("焊线"))return "WELD"; return String(v).toUpperCase(); }
+
+function hashRow(obj){ const s=JSON.stringify(obj); let h=0; for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return (h>>>0).toString(36); }
+function buildMES(headers, rows){
+  const I=k=>colIndex(headers,k);
+  const idx={Date:I(["date"]),Shift:I(["shift"]),LTS:I(["lts"]),Machine:I(["machine no","machine"]),Product:I(["product type"]),
+    Cause:I(["wire break reason"]),Action:I(["handling method"]),Discard:I(["discard length"]),DReason:I(["discard reason"]),
+    GradeA:I(["total grade a"]),GradeA2:I(["grade a (pcs"]),As1:I(["cosmetics as"]),CosA:I(["cosmetics a-"]),TotCos:I(["total cosmetics"]),
+    Pass:I(["one time pass rate"]),Loss:I(["wire break loss"]),Eff:I(["effective wafer"]),
+    RId:I(["rescuers employee id"]),RName:I(["rescuers employee name"])};
+  const g=(c,k)=>idx[k]>-1?c[idx[k]]:null;
+  return rows.map((c,i)=>{
+    const as1=num(g(c,"As1")), cosA=num(g(c,"CosA")); let tot=num(g(c,"TotCos"));
+    if(tot==null&&(as1!=null||cosA!=null)) tot=(as1||0)+(cosA||0);
+    let gA=num(g(c,"GradeA")); if(gA==null) gA=num(g(c,"GradeA2"));
+    const rec={Date:normalizeDate(g(c,"Date")),Shift:stdShift(g(c,"Shift")),LTS:String(g(c,"LTS")||"").trim().toUpperCase(),
+      Machine:normalizeMachine(g(c,"Machine")),ProductType:String(g(c,"Product")||"").trim()||null,Cause:g(c,"Cause"),Action:g(c,"Action"),
+      Discard:num(g(c,"Discard"))||0,DiscardReason:g(c,"DReason"),GradeA:gA,As1:as1,CosA:cosA,TotalCos:tot,PassRate:num(g(c,"Pass")),
+      WbLoss:num(g(c,"Loss")),EffWafer:num(g(c,"Eff")),RescuerId:String(g(c,"RId")||"").trim(),RescuerName:String(g(c,"RName")||"").trim(),Emp:null};
+    rec.id="M-"+hashRow(rec); return rec;
+  }).filter(r=>r.LTS);
+}
+
+function buildChinese(headers, rows){
+  const idx={Date:colIndex(headers,["日期"]),Machine:colIndex(headers,["机台号"]),LTS:colIndex(headers,["流水码"]),
+    Cause:colIndex(headers,["断线舍弃原因","原因"]),Discard:colIndex(headers,["舍弃长度"]),Action:colIndex(headers,["挽救措施"]),
+    EmpName:colIndex(headers,["挽救人"])};
+  return rows.map((c,i)=>{ const ds=parseChineseDateShift(idx.Date>-1?c[idx.Date]:"");
+    const rec={Date:ds.date,Shift:ds.shift,LTS:idx.LTS>-1?String(c[idx.LTS]||"").trim().toUpperCase():"",
+      Machine:idx.Machine>-1?normalizeMachine(c[idx.Machine]):null,Cause:idx.Cause>-1?c[idx.Cause]:null,Action:idx.Action>-1?c[idx.Action]:null,
+      Discard:idx.Discard>-1?(Number(c[idx.Discard])||0):0,GradeA:null,CosA:null,Emp:null,EmpName:idx.EmpName>-1?(c[idx.EmpName]||null):null};
+    rec.id="C-"+hashRow(rec); return rec;
+  }).filter(r=>r.LTS);
+}
+function buildLocal(headers, rows){
+  const idx={Date:colIndex(headers,["date"]),LTS:colIndex(headers,["beam id"]),Machine:colIndex(headers,["ws"]),
+    Cause:colIndex(headers,["root cause"]),Action:colIndex(headers,["action"]),Discard:colIndex(headers,["shorten amount"]),
+    Shift:colIndex(headers,["d/n"]),Emp:colIndex(headers,["recovery emp id"])};
+  return rows.map((c,i)=>{ const rec={Date:normalizeDate(idx.Date>-1?c[idx.Date]:null),Shift:idx.Shift>-1?stdShift(c[idx.Shift]):null,
+    LTS:idx.LTS>-1?String(c[idx.LTS]||"").trim().toUpperCase():"",Machine:idx.Machine>-1?normalizeMachine(c[idx.Machine]):null,
+    Cause:idx.Cause>-1?c[idx.Cause]:null,Action:idx.Action>-1?c[idx.Action]:null,Discard:idx.Discard>-1?(Number(c[idx.Discard])||0):0,
+    GradeA:null,CosA:null,Emp:idx.Emp>-1?(c[idx.Emp]||null):null};
+    rec.id="L-"+hashRow(rec); return rec;
+  }).filter(r=>r.LTS);
+}
+function mergeRecords(existing,incoming){
+  const map={}; (existing||[]).forEach(r=>map[r.id]=r);
+  let added=0; incoming.forEach(r=>{ if(!(r.id in map)) added++; map[r.id]=r; });
+  return {merged:Object.values(map), added, duplicates:incoming.length-added};
+}
+function parsePaste(key){
+  const ta=document.getElementById("paste_"+key);
+  const text=(ta?ta.value:"").trim();
+  if(!text){ alert("Paste your data first — include the header row."); return; }
+  const grid=parseDelimited(text);
+  if(grid.length<2){ alert("No data rows found below the header row."); return; }
+  const headers=grid[0].map(h=>String(h||"").trim());
+  const rows=grid.slice(1);
+  let records;
+  if(key==="mes") records=buildMES(headers,rows);
+  else if(key==="chinese") records=buildChinese(headers,rows);
+  else records=buildLocal(headers,rows);
+  if(!records.length){ alert("Parsed 0 valid rows — the LTS / Beam ID column wasn't detected. Check the reference template above."); return; }
+  const {merged,added,duplicates}=mergeRecords(state[key],records);
+  state[key]=merged;
+  alert(`Added ${added} new record(s) to ${key}.${duplicates?" "+duplicates+" exact duplicate(s) already saved were skipped.":""} Total saved: ${merged.length}.\n\nThis text box is just scratch space — your saved data is safe even if you edit or clear it. Use the small ✕ to clear the box, or "Clear saved data" to actually delete what's stored.`);
+  render();
+}
+
+/* ---------- RECONCILIATION: grouped by LTS, MES presence = source of truth ---------- */
+function resolveEmployee(rec, src){
+  if(src==="chinese") return {type:"China Support",name:rec.EmpName||null,id:null};
+  if(src==="mes"){ const n=rec.RescuerName;
+    if(!n) return {type:"Unknown",name:null,id:rec.RescuerId||null};
+    return {type:hasCJK(n)?"China Support":"Local",name:n,id:rec.RescuerId||null}; }
+  const id=String(rec.Emp||"").trim(); const m=id&&EMPLOYEE_MASTER[id];
+  return {type:!id?"Unknown":(/cst/i.test(id)?"China Support":"Local"),name:m?m.name:null,id:id||null};
+}
+
+function todayStr(){ const d=new Date(); return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0"); }
+function makeEvent(o){
+  const m=o.sources.mes;
+  return {id:"WB-"+o.today+"-"+String(o.seq).padStart(4,"0"),date:o.date,shift:o.shift,lts:o.lts,machine:o.machine,
+    productType:m?m.ProductType:null,cause:o.cause,action:stdAction(o.action),handling:m?m.Action:null,discard:o.discard,
+    gradeA:m?m.GradeA:null,as1:m?m.As1:null,cosA:m?m.CosA:null,totalCos:m?m.TotalCos:null,discardReason:m?m.DiscardReason:null,
+    passRate:m?m.PassRate:null,wbLoss:m?m.WbLoss:null,effWafer:m?m.EffWafer:null,
+    empType:o.emp.type,empId:o.emp.id,empName:o.emp.name,status:o.status,confidence:o.confidence,source:o.source,sources:o.sources};
+}
+function runPipeline(){
+  const mesByLTS={},chiByLTS={},locByLTS={};
+  state.mes.forEach(r=>(mesByLTS[r.LTS]=mesByLTS[r.LTS]||[]).push(r));
+  state.chinese.forEach(r=>(chiByLTS[r.LTS]=chiByLTS[r.LTS]||[]).push(r));
+  state.local.forEach(r=>(locByLTS[r.LTS]=locByLTS[r.LTS]||[]).push(r));
+  const allLTS=new Set([...Object.keys(mesByLTS),...Object.keys(chiByLTS),...Object.keys(locByLTS)]);
+  const today=todayStr(); let seq=1; const events=[];
+  allLTS.forEach(lts=>{
+    const mesRecs=mesByLTS[lts]||[], chiRecs=chiByLTS[lts]||[], locRecs=locByLTS[lts]||[];
+    const manual=[...chiRecs.map(r=>({...r,_src:"Chinese"})),...locRecs.map(r=>({...r,_src:"Local"}))];
+    const conflict=chiRecs.length&&locRecs.length&&Math.abs((chiRecs[0].Discard||0)-(locRecs[0].Discard||0))>10;
+    if(mesRecs.length){
+      mesRecs.forEach(mesRec=>{
+        const enrich=manual.find(m=>Math.abs((m.Discard||0)-(mesRec.Discard||0))<=10)||manual[0]||null;
+        const emp=mesRec.RescuerName?resolveEmployee(mesRec,"mes"):(enrich?resolveEmployee(enrich,enrich._src==="Chinese"?"chinese":"local"):{type:"Unknown",name:null,id:null});
+        events.push(makeEvent({today,seq:seq++,lts,date:mesRec.Date,shift:mesRec.Shift,machine:mesRec.Machine,cause:mesRec.Cause,
+          action:mesRec.Action||(enrich&&enrich.Action),discard:mesRec.Discard,emp,status:conflict?"CONFLICT – MANUAL REVIEW":"MES MASTER",
+          confidence:enrich?90:100,source:["MES",...(enrich?[enrich._src]:[])],sources:{mes:mesRec,chi:chiRecs[0]||null,loc:locRecs[0]||null}}));
+      });
+    } else if(manual.length){
+      const primary=manual[0]; const emp=resolveEmployee(primary,primary._src==="Chinese"?"chinese":"local");
+      events.push(makeEvent({today,seq:seq++,lts,date:primary.Date,shift:primary.Shift,machine:primary.Machine,cause:primary.Cause,
+        action:primary.Action,discard:primary.Discard,emp,status:conflict?"CONFLICT – MANUAL REVIEW":"MANUAL ADDED – MES MISSING",confidence:60,
+        source:[...new Set(manual.map(m=>m._src))],sources:{mes:null,chi:chiRecs[0]||null,loc:locRecs[0]||null}}));
+    }
+  });
+  state.events=events;
+}
+
+function gapRows(events){ return (events||state.events).filter(e=>!e.source.includes("MES")).map(e=>({
+  LTS:e.lts,Date:e.date,RootCause:e.cause||"—",Discard_mm:e.discard,Employee:e.empName||e.empId||"—",
+  Source:e.source.join("+"),Issue:"No MES record found for this LTS"})); }
+
+/* ---------- KPI / ANALYSIS (all accept an optional events list; default = full dataset) ---------- */
+function kpis(events){ events=events||state.events; const total=events.length;
+  const totalDiscard=events.reduce((s,e)=>s+(e.discard||0),0); const st=evalStats(events);
+  const den=st.eff>0?st.eff:(st.gradeA+st.totalCos);
+  const mesLTS=new Set(events.filter(e=>e.source.includes("MES")).map(e=>e.lts)).size;
+  const totalLTS=new Set(events.map(e=>e.lts)).size;
+  return {total,totalDiscard,avgDiscard:total?(totalDiscard/total).toFixed(1):0,st,as1:st.as1,cosA:st.cosA,totalCos:st.totalCos,
+    cosRate:den?(st.totalCos/den*100).toFixed(2):"0.00",successRate:st.rate==null?"n/a":st.rate.toFixed(1),
+    completeness:totalLTS?((mesLTS/totalLTS)*100).toFixed(1):"0.0",mesLTS,totalLTS};
+}
+function causeRows(events){ events=events||state.events; const c={}; events.forEach(e=>c[e.cause]=(c[e.cause]||0)+1);
+  const arr=Object.entries(c).sort((a,b)=>b[1]-a[1]); const total=events.length||1; let cum=0;
+  return arr.map(([cause,n])=>{cum+=n; return {RootCause:cause,Events:n,Percent:((n/total)*100).toFixed(1),CumulativePercent:((cum/total)*100).toFixed(1)};});}
+function actionRows(events){ events=events||state.events; const g={}; events.forEach(e=>{const a=e.action||"UNKNOWN"; (g[a]=g[a]||[]).push(e);});
+  return Object.entries(g).map(([a,list])=>{const s=evalStats(list); return {RecoveryAction:a,Events:list.length,EvaluatedWithMES:s.evaluable,NotSuccess:s.fail,
+    SuccessRate_pct:s.rate==null?"n/a":s.rate.toFixed(1),TotalCosmetics:s.totalCos,AvgDiscard_mm:(list.reduce((x,e)=>x+(e.discard||0),0)/list.length).toFixed(1)};});}
+function employeeRows(events){ events=events||state.events; const g={}; events.forEach(e=>{const t=e.empType||"Unknown"; (g[t]=g[t]||[]).push(e);});
+  const order=["China Support","Local","Unknown"]; const total=events.length||1;
+  return order.filter(t=>g[t]).map(t=>{const list=g[t], s=evalStats(list), disc=list.reduce((x,e)=>x+(e.discard||0),0);
+    return {EmployeeType:t,RecoveryEvents:list.length,RecoveryShare_pct:(list.length/total*100).toFixed(1),EvaluatedWithMES:s.evaluable,NotSuccess:s.fail,
+      SuccessRate_pct:s.rate==null?"n/a":s.rate.toFixed(1),AS1:s.as1,CosmeticA_minus:s.cosA,TotalCosmetics:s.totalCos,TotalDiscard_mm:disc,AvgDiscard_mm:(disc/list.length).toFixed(1)};});}
+function qualityRows(events){ events=events||state.events; const k=kpis(events); const gaps=gapRows(events);
+  return [{Metric:"Total Distinct LTS",Value:k.totalLTS},{Metric:"LTS Found in MES",Value:k.mesLTS},
+    {Metric:"LTS Missing from MES",Value:k.totalLTS-k.mesLTS},{Metric:"MES Completeness (%)",Value:k.completeness},
+    {Metric:"Consolidated Events",Value:k.total},{Metric:"Conflict – Manual Review Events",Value:events.filter(e=>e.status.includes("CONFLICT")).length},
+    {Metric:"MES Raw Records",Value:state.mes.length},{Metric:"Chinese Manual Records",Value:state.chinese.length},
+    {Metric:"Local Manual Records",Value:state.local.length}];}
+function eventsToRows(events){ const N="No info in MES"; return (events||state.events).map(e=>{const m=!!e.sources.mes; const f=v=>m?((v==null||v==="")?"":v):N;
+  return {EventID:e.id,LTS:e.lts,Date:e.date,Shift:e.shift,Machine:e.machine,DataOrigin:sourceLabel(e),Status:e.status,
+    Employee:e.empName||e.empId||"",EmployeeType:e.empType,RootCause:e.cause,RecoveryAction:e.action,
+    MES_GradeA:f(e.gradeA),MES_AS1_CosmeticsAS:f(e.as1),MES_CosmeticsA_minus:f(e.cosA),MES_TotalCosmetics:f(e.totalCos),
+    RecoveryResult:(m&&e.totalCos!=null)?(e.totalCos>CFG.cosThreshold?"NOT SUCCESS":"SUCCESS"):N,
+    MES_DiscardLength_mm:m?e.sources.mes.Discard:N,MES_DiscardReason:f(e.discardReason),MES_HandlingMethod:f(e.handling),
+    MES_OneTimePassRate_pct:f(e.passRate),MES_WireBreakLoss:f(e.wbLoss),MES_EffectiveWafer:f(e.effWafer),Confidence_pct:e.confidence};});}
+function kpiRows(events){ const k=kpis(events); return [
+  {Metric:"Total Wire Break Events",Value:k.total},{Metric:"Total Discard Length (mm)",Value:k.totalDiscard},{Metric:"Average Discard Length (mm)",Value:k.avgDiscard},
+  {Metric:"AS1 Cosmetics AS (qty)",Value:k.as1},{Metric:"Cosmetics A- (qty)",Value:k.cosA},{Metric:"Total Cosmetics (qty)",Value:k.totalCos},
+  {Metric:"Cosmetic Rate (%)",Value:k.cosRate},{Metric:"Events Evaluated (have MES data)",Value:k.st.evaluable},{Metric:"Events Not Successful",Value:k.st.fail},
+  {Metric:"Recovery Success Rate (%)",Value:k.successRate},{Metric:"MES Record Completeness (%)",Value:k.completeness}];}
+
+function badgeClass(s){ return {"MES MASTER":"b-mes","MANUAL ADDED – MES MISSING":"b-manual","DUPLICATE – MES PRIORITY":"b-dup","CONFLICT – MANUAL REVIEW":"b-conf","UNMATCHED":"b-unm"}[s]||"b-unm"; }
+function sourceLabel(e){
+  if(e.source.includes("MES")) return "MES Production Data";
+  const hasChi=e.source.includes("Chinese"), hasLoc=e.source.includes("Local");
+  if(hasChi&&hasLoc) return "Chinese Employee and Local Employee Records";
+  if(hasChi) return "Chinese Employee Records";
+  if(hasLoc) return "Local Employee Records";
+  return "Unknown";
+}
+function dataDropdown(rows,label){
+  if(!rows||!rows.length) return `<details class="card" style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">📊 View data table</summary><p class="sub" style="margin-top:8px">No data.</p></details>`;
+  const cols=Object.keys(rows[0]);
+  return `<details class="card" style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">📊 View data table${label?" — "+label:""}</summary>
+  <div class="scrollx" style="margin-top:10px"><table><thead><tr>${cols.map(c=>`<th>${c.replace(/_/g," ")}</th>`).join("")}</tr></thead>
+  <tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${r[c]==null?"—":r[c]}</td>`).join("")}</tr>`).join("")}</tbody></table></div></details>`;
+}
+function donut(pct,label,sub){ return `<div class="row" style="align-items:center;gap:16px">
+  <div class="donut" style="background:conic-gradient(var(--cyan) ${pct*3.6}deg, var(--grey-bg) 0deg)"><b>${pct}%</b></div>
+  <div><b>${label}</b><div class="sub" style="margin-top:2px">${sub}</div></div></div>`; }
+
+/* ---------- EXPORT (Excel via SheetJS) ---------- */
+function exportWorkbook(sheets,filename){ const wb=XLSX.utils.book_new();
+  sheets.forEach(s=>{ const ws=XLSX.utils.json_to_sheet(s.rows.length?s.rows:[{Note:"No data"}]); XLSX.utils.book_append_sheet(wb,ws,s.name.slice(0,31)); });
+  XLSX.writeFile(wb,filename);}
+function exportAll(){ if(!state.events.length){alert("Process data first.");return;}
+  exportWorkbook([{name:"Consolidated Events",rows:eventsToRows()},{name:"KPI Summary",rows:kpiRows()},
+    {name:"Not Successful",rows:notSuccessRows()},...trendSheets(state.events),
+    {name:"Root Cause Pareto",rows:causeRows()},{name:"Recovery Action",rows:actionRows()},{name:"Employee Analysis",rows:employeeRows()},
+    {name:"Data Quality",rows:qualityRows()},{name:"MES Gaps",rows:gapRows()}],"wire_break_full_export.xlsx");}
+function exportOne(type){ if(!state.events.length){alert("Process data first.");return;}
+  const m={events:["Final Events",eventsToRows],recon:["Reconciliation",eventsToRows],quality:["Data Quality",qualityRows],dashboard:["Dashboard Summary",kpiRows],
+    rootcause:["Root Cause",causeRows],recovery:["Recovery Action",actionRows],employee:["Employee Analysis",employeeRows],gaps:["MES Gaps",gapRows],notsuccess:["Not Successful",notSuccessRows]};
+  const [name,fn]=m[type]; exportWorkbook([{name,rows:fn()}],"wire_break_"+type+".xlsx");}
+
+/* ---------- RENDER ---------- */
+function el(html){ const d=document.createElement("div"); d.innerHTML=html.trim(); return d.firstChild; }
+function nav(){
+  const n=document.getElementById("nav"); n.innerHTML=""; let lastG=null;
+  PAGES.forEach(p=>{
+    if(p.g!==lastG){ n.appendChild(el(`<div class="grp">${p.g}</div>`)); lastG=p.g; }
+    const a=el(`<a>${p.ic} ${p.zh} · ${p.en}</a>`);
+    if(state.page===p.id) a.classList.add("active");
+    a.onclick=()=>{state.page=p.id; document.getElementById("side").classList.remove("open"); render();};
+    n.appendChild(a);
+  });
+}
+function header(zh,en,icon){ return `<h1>${icon?icon+" ":""}${zh}</h1><p class="sub">${en}</p><div class="accent"></div>`; }
+function emptyState(msg){ return `<div class="card empty">${mascot(84)}<div style="margin-top:8px;font-weight:800">${msg}</div></div>`; }
+
+function pageUpload(){
+  const c=(key,zh,en,arr)=>`<div class="upcard">
+    <b>${zh}</b><div class="sub" style="margin:4px 0 10px">${en}</div>
+    <textarea id="paste_${key}" rows="5" class="pastebox" placeholder="Paste today's new rows (header row + data rows). Previously added rows stay saved — you only need to paste what's new." oninput="state.pasteText['${key}']=this.value; saveState();">${state.pasteText[key]||""}</textarea>
+    <div class="row" style="margin-top:8px;gap:8px">
+      <button class="btn" style="flex:1" onclick="parsePaste('${key}')">Parse Pasted Data</button>
+      <button class="btn ghost" onclick="clearBox('${key}')" title="Clear this text box only — does NOT touch your saved data">✕</button>
+    </div>
+    ${arr.length?`<div class="status-ok" style="margin-top:8px">✓ ${arr.length} records saved · <span class="link" style="color:var(--err)" onclick="clearSource('${key}')">🗑️ Clear saved data</span></div>`:`<div class="sub" style="margin-top:8px">Not loaded yet</div>`}
+  </div>`;
+  return header("数据导入","Data Upload",ICONS.upload)+
+  (state._restoredAt?`<div class="card" style="margin-bottom:14px;border:1.5px solid var(--ok)"><b>✅ Restored your previous session</b><p class="sub" style="margin-top:4px">Last auto-saved ${new Date(state._restoredAt).toLocaleString()} in this browser. Continue where you left off, or Clear All Data to start fresh.</p></div>`:"")+`
+  <details class="card" style="margin-bottom:16px">
+    <summary style="cursor:pointer;font-weight:600">📋 Reference: expected columns per template (click to expand)</summary>
+    <div class="row" style="margin-top:12px">
+      <div class="pill" style="flex:1;min-width:220px"><b>MES</b><br>Date · Shift · 随工单流水码 LTS · 切片机台 Machine No · 断线原因 Wire Break Reason · 处理方法 Handling Method · 舍弃长度 Discard Length · A级合格 Total Grade A · 色差 Cosmetics A- · AS1 Cosmetics AS · 总色差片 Total Cosmetics · 舍弃原因 Discard Reason · 一次合格率 · 舍弃碎 Wire Break Loss · 有效理论片 · 产品类型 Product Type · 挽救者工号/姓名 Rescuers (English name = Local, Chinese name = China Support). Paste your reduced MES export — extra columns are ignored, order doesn't matter.</div>
+      <div class="pill" style="flex:1;min-width:220px"><b>中方 Chinese</b><br>日期 · 机台号 · 流水码 · 断线舍弃原因 · 舍弃长度mm · 挽救措施 · 断线挽救人 · 备注 (8 columns, date like "9.22白").</div>
+      <div class="pill" style="flex:1;min-width:220px"><b>本地 Local</b><br>Date · Beam ID · WS (machine) · Root Cause · Action · Shorten amount · D/N (shift) · Recovery Emp ID (number = Local, CST = China Support). Other columns are ignored.</div>
+    </div>
+  </details>
+  <div class="row">
+    ${c("mes","MES Production Data","生产系统数据",state.mes)}
+    ${c("chinese","Chinese Employee Records","中方员工断线记录",state.chinese)}
+    ${c("local","Local Employee Records","本地员工断线记录",state.local)}
+  </div>
+  <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <button class="btn" onclick="loadDemo()"><span class="gear">🎲</span> Load Demo Dataset</button>
+    <button class="btn ghost" onclick="processData()"><span class="gear">⚙️</span> Process &amp; Reconcile →</button>
+    <button class="btn danger" onclick="clearAll()">🗑️ Clear All Data</button>
+    ${state.events.length?`<span class="chip">● Ready — ${state.events.length} consolidated events</span>`:""}
+  </div>
+  <div class="card" style="margin-top:18px">
+    <b>📤 Share Your Data With Someone Else / Another Computer</b>
+    <p class="sub" style="margin:6px 0 10px">Your data is saved only in this browser, on this device — it does <b>not</b> travel inside the HTML file when you email or copy it elsewhere, so a colleague opening the same file will start empty. To hand off your actual data: download a data file here, then send <b>both</b> the HTML file and this data file to your colleague — they open the HTML and use "Load Data File" to bring your data in.</p>
+    <div class="row">
+      <button class="btn ghost" onclick="downloadSnapshot()">💾 Download Data File</button>
+      <button class="btn ghost" onclick="triggerImport()">📂 Load Data File</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importSnapshot(this.files[0])">
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <b>💾 Auto-Save In This Browser</b>
+    <p class="sub" style="margin-top:6px">Everything you paste and process is automatically saved in this browser (via localStorage) — reopening this exact HTML file on the same device and browser will restore your last session, with no need to download anything. <b>Pasting is additive</b>: each time you paste and click Parse, the new rows are added on top of what you already saved — you never need to re-paste yesterday's data, just today's new rows. Exact duplicate rows are detected and skipped automatically. Clicking the small ✕ only clears the text box, not your saved data — use the red "Clear saved data" link under a card, or the "🗑️ Clear All Data" button below, to actually delete what's stored.</p>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <b>⚙️ Reconciliation Rule</b>
+    <p class="sub" style="margin-top:6px">Records are grouped by LTS. If MES has a row for that LTS, MES is treated as the source of truth (enriched with the closest-matching manual recovery record). If MES has <b>no</b> row for that LTS at all, the event is kept from the manual record and flagged as an MES data-quality gap — see Dashboard and Data Quality.</p>
+  </div>`;
+}
+function clearBox(key){ state.pasteText[key]=""; render(); }
+function clearSource(key){
+  if(!confirm("This will permanently delete all "+key.toUpperCase()+" data you've saved so far (not just this text box). You'll need to re-paste it from scratch. Continue?")) return;
+  state[key]=[]; state.pasteText[key]=""; state.events=[]; render();
+}
+function downloadSnapshot(){
+  if(!state.mes.length&&!state.chinese.length&&!state.local.length){ alert("Nothing to save yet — paste some data first."); return; }
+  const payload={savedAt:new Date().toISOString(),state:{mes:state.mes,chinese:state.chinese,local:state.local,events:state.events,
+    dashFrom:state.dashFrom,dashTo:state.dashTo,gran:state.gran},cfg:{cosThreshold:CFG.cosThreshold,cosTarget:CFG.cosTarget,successTarget:CFG.successTarget}};
+  const blob=new Blob([JSON.stringify(payload,null,1)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="wire-break-data-"+new Date().toISOString().slice(0,10)+".json"; document.body.appendChild(a); a.click(); a.remove();
+}
+function triggerImport(){ const inp=document.getElementById("importFile"); if(inp) inp.click(); }
+function importSnapshot(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const payload=JSON.parse(e.target.result); if(!payload||!payload.state) throw new Error("Not a recognized data file");
+      const merge=confirm("Merge this file's data into what you already have? Click OK to merge (recommended, keeps your existing data and adds new rows), or Cancel to replace everything with this file instead.");
+      if(merge){
+        ["mes","chinese","local"].forEach(k=>{ const r=mergeRecords(state[k], payload.state[k]||[]); state[k]=r.merged; });
+      } else {
+        state.mes=payload.state.mes||[]; state.chinese=payload.state.chinese||[]; state.local=payload.state.local||[];
+      }
+      if(payload.cfg) Object.assign(CFG, payload.cfg);
+      state.events=[];
+      alert("Data file loaded (saved "+new Date(payload.savedAt).toLocaleString()+"). Click Process & Reconcile to rebuild the dashboard.");
+      render();
+    }catch(err){ alert("Couldn't read that file: "+err.message); }
+  };
+  reader.readAsText(file);
+}
+function clearAll(){
+  if(!confirm("Clear ALL uploaded data (MES, Chinese, Local) and any processed events, including the auto-saved copy in this browser? This can't be undone — you'll need to re-paste your data.")) return;
+  state.mes=[]; state.chinese=[]; state.local=[]; state.events=[]; state.selectedEvent=null;
+  state.pasteText={mes:"",chinese:"",local:""}; state.dashFrom=""; state.dashTo=""; state.ltsQuery="";
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+  render();
+}
+function loadDemo(){ const d=demoDataset(); state.mes=d.mes; state.chinese=d.chi; state.local=d.loc; processData(); }
+function processData(){ if(!state.mes.length && !state.chinese.length && !state.local.length){ alert("Paste at least one source or load demo data first."); return;} runPipeline(); state.page="dashboard"; render(); }
+
+function filteredEvents(){ let e=state.events; if(state.dashFrom) e=e.filter(x=>x.date>=state.dashFrom); if(state.dashTo) e=e.filter(x=>x.date<=state.dashTo); return e; }
+function applyDashFilter(){ state.dashFrom=document.getElementById("dashFrom").value; state.dashTo=document.getElementById("dashTo").value;
+  const t=document.getElementById("cosThr"); if(t) CFG.cosThreshold=Math.max(0,Number(t.value)||0); render(); }
+
+function resetDashFilter(){ state.dashFrom=""; state.dashTo=""; render(); }
+
+function pageDashboard(){
+  if(!state.events.length) return header("断线挽救监控看板","Wire Break Recovery Monitoring",ICONS.dashboard)+emptyState("Upload and process your wire-break records to begin analysis.");
+  const ev=filteredEvents(); const k=kpis(ev); const st=k.st;
+  const kpiCard=(zh,en,n,u,extra)=>`<div class="card kpi" ${extra||""}><div class="t">${zh} · ${en}</div><div class="n">${n}</div><div class="u">${u}</div></div>`;
+  const causeCounts={}; ev.forEach(e=>causeCounts[e.cause]=(causeCounts[e.cause]||0)+1); const maxC=Math.max(1,...Object.values(causeCounts));
+  const bars=Object.entries(causeCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([c,n])=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="width:150px;font-size:12px;color:var(--ink2)" title="${c}">${c}</div>
+    <div style="flex:1;background:var(--grey-bg);border-radius:4px;height:16px;overflow:hidden"><div style="width:${(n/maxC)*100}%;background:var(--cyan);height:100%"></div></div><div style="width:24px;font-size:12px">${n}</div></div>`).join("");
+  const prods=productTypes(ev);
+  const cosCharts=prods.length?prods.map((p,i)=>{ const s=cosmeticSeries(ev,p);
+    const rows=s.labels.map((l,j)=>({Period:l,Shippable_AS1_pct:s.shippable[j],Downgrade_A_minus_pct:s.downgrade[j],Total_pct:s.total[j],Target_pct:CFG.cosTarget}));
+    return `<div class="card"><div class="chartbox"><canvas id="cosChart${i}"></canvas></div>${dataDropdown(rows,"Cosmetic Trend – "+p)}</div>`; }).join("")
+    :`<div class="card empty">No MES records with cosmetic data in this range.</div>`;
+  const rs=recoverySeries(ev);
+  const rec1Rows=rs.labels.map((l,i)=>({Period:l,ChinaSupport_Events:rs.chiN[i],Local_Events:rs.locN[i],ChinaSupport_SuccessRate_pct:rs.chiRate[i],Local_SuccessRate_pct:rs.locRate[i],Target_pct:CFG.successTarget}));
+  const rec2Rows=rs.labels.map((l,i)=>({Period:l,Local_Events:rs.locN[i],Total_Events:rs.totN[i],LocalShare_pct:rs.share[i],Local_SuccessRate_pct:rs.locRate[i],Target_pct:CFG.successTarget}));
+  const causeRowsTbl=Object.entries(causeCounts).sort((a,b)=>b[1]-a[1]).map(([c,n])=>({RootCause:c,Events:n,Percent_pct:((n/(ev.length||1))*100).toFixed(1)}));
+  const qualityRowsTbl=[{Metric:"LTS Found in MES",Value:k.mesLTS},{Metric:"LTS Missing from MES",Value:k.totalLTS-k.mesLTS},{Metric:"Total Distinct LTS",Value:k.totalLTS},{Metric:"Completeness_pct",Value:k.completeness}];
+  const ns=notSuccessEvents(ev); const nsWafers=ns.reduce((s,e)=>s+e.totalCos,0), nsAs1=ns.reduce((s,e)=>s+(e.as1||0),0), nsA=ns.reduce((s,e)=>s+(e.cosA||0),0);
+  const byType=["China Support","Local","Unknown"].map(t=>{const l=ns.filter(e=>e.empType===t); return l.length?`<span class="chip" style="background:var(--warn-bg);color:var(--warn)">${t}: ${l.length} events · ${l.reduce((s,e)=>s+e.totalCos,0)} wafers</span>`:"";}).join(" ");
+  const nsTable=ns.length?`<div class="scrollx" style="max-height:420px;overflow:auto"><table><thead><tr><th>Event ID</th><th>LTS</th><th>Date</th><th>Machine</th><th>Employee</th><th>Type</th><th>Root Cause</th><th>Action</th><th>Discard (mm)</th><th>AS1</th><th>A-</th><th>Total Cosmetics</th></tr></thead><tbody>
+    ${ns.map(e=>`<tr><td><span class="link" onclick="openEvent('${e.id}')">${e.id}</span></td><td>${e.lts}</td><td>${e.date||"—"}</td><td>${e.machine||"—"}</td><td>${e.empName||e.empId||"—"}</td><td>${typeBadge(e.empType)}</td><td>${e.cause||"—"}</td><td>${e.action||"—"}</td><td>${e.discard}</td><td>${e.as1??"—"}</td><td>${e.cosA??"—"}</td><td><b>${e.totalCos}</b></td></tr>`).join("")}</tbody></table></div>`
+    :'<p class="sub">No unsuccessful recoveries in this range 🎉</p>';
+  return `<div class="top"><div><h1>${ICONS.dashboard} 断线挽救监控看板</h1><p class="sub">Wire Break Recovery Monitoring Dashboard</p><div class="stripe"></div></div>
+    <div class="pill">Data Status: <span class="status-ok">● Ready</span><br>${state.events.length} total events processed</div></div>
+  <div class="card" style="margin-bottom:16px"><div class="row" style="align-items:center">
+    <label>📅 From <input type="date" id="dashFrom" value="${state.dashFrom}"></label>
+    <label>→ To <input type="date" id="dashTo" value="${state.dashTo}"></label>
+    <label>⚠️ Not success if cosmetics &gt; <input type="number" id="cosThr" min="0" value="${CFG.cosThreshold}" style="width:64px"></label>
+    <button class="btn" onclick="applyDashFilter()">Apply</button><button class="btn ghost" onclick="resetDashFilter()">Reset</button>
+    <span style="flex:1"></span>
+    <button class="btn ${state.gran==="day"?"":"ghost"}" onclick="setGran('day')">Daily</button><button class="btn ${state.gran==="week"?"":"ghost"}" onclick="setGran('week')">Weekly</button>
+    <span class="sub" style="margin:0">Showing ${ev.length} of ${state.events.length} events</span></div></div>
+  <div class="grid kpis">
+    ${kpiCard("总断线记录","Total Events",k.total,"events")}
+    ${kpiCard("总舍弃长度","Total Discard",k.totalDiscard.toLocaleString(),"mm · avg "+k.avgDiscard+" mm")}
+    ${kpiCard("总色差片","Total Cosmetics",st.totalCos.toLocaleString(),"AS1 "+st.as1+" · A- "+st.cosA+" · "+k.cosRate+"% of effective wafers")}
+    ${kpiCard("挽救成功率","Recovery Success",k.successRate+(k.successRate==="n/a"?"":"%"),st.success+" of "+st.evaluable+" events with zero excess cosmetics")}
+    ${kpiCard("挽救不成功","Not Successful",st.fail,"events · click to see details",'style="cursor:pointer" onclick="document.getElementById(\'notsuccess\').scrollIntoView({behavior:\'smooth\'})"')}
+    ${kpiCard("MES记录完整率","MES Completeness",k.completeness+"%",k.mesLTS+" / "+k.totalLTS+" LTS in MES")}
+  </div>
+  <div class="g2">${cosCharts}</div>
+  <div class="g2">
+    <div class="card"><div class="chartbox"><canvas id="recChart1"></canvas></div>${dataDropdown(rec1Rows,"Local vs China Support")}</div>
+    <div class="card"><div class="chartbox"><canvas id="recChart2"></canvas></div>${dataDropdown(rec2Rows,"Local Share & Success Rate")}</div>
+  </div>
+  <div class="row">
+    <div class="card" style="flex:2;min-width:320px"><b>🧯 断线原因分布 · Wire Break Cause Distribution</b><div style="margin-top:14px">${bars||'<div class="sub">No data in this range.</div>'}</div>${dataDropdown(causeRowsTbl,"Root Cause Distribution")}</div>
+    <div class="card" style="flex:1;min-width:260px"><b>📐 MES Data Quality</b><div style="margin-top:14px">${donut(k.completeness,k.completeness+"% complete",k.mesLTS+" of "+k.totalLTS+" LTS have an MES record")}</div>
+      <p class="sub" style="margin-top:10px">${k.totalLTS-k.mesLTS} LTS were reported only by manual records. <span class="link" onclick="state.page='dataquality';render();">See what's missing →</span></p>${dataDropdown(qualityRowsTbl,"MES Data Quality")}</div>
+  </div>
+  <div class="card" id="notsuccess" style="margin-top:16px">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><b>⚠️ Unsuccessful Recoveries — cosmetic wafers produced</b>
+      <button class="btn ghost" onclick="exportOne('notsuccess')">📥 Export to Excel</button></div>
+    <p class="sub" style="margin:6px 0 10px">A recovery is counted as not successful when the LTS produced more than ${CFG.cosThreshold} cosmetic wafers (AS1 + A-). ${ns.length} events · <b>${nsWafers}</b> cosmetic wafers (AS1 ${nsAs1} · A- ${nsA}).</p>
+    <div style="margin-bottom:10px">${byType}</div>${nsTable}
+  </div>`;
+}
+
+function pageRecon(){
+  if(!state.events.length) return header("数据核对","Data Reconciliation",ICONS.recon)+emptyState("No consolidated events yet. Process data first.");
+  const nm='<span class="nomes">No info in MES</span>';
+  const cell=(e,v,f)=>e.sources.mes?((v==null||v==="")?"—":(f?f(v):v)):nm;
+  const rows=state.events.map(e=>`<tr>
+    <td><span class="link" onclick="openEvent('${e.id}')">${e.id}</span></td><td>${e.lts}</td><td>${e.date||"—"}</td><td>${e.machine||"—"}</td>
+    <td>${sourceLabel(e)}</td><td><span class="badge ${badgeClass(e.status)}">${e.status}</span></td>
+    <td>${e.empName||e.empId||"—"}</td><td>${typeBadge(e.empType)}</td>
+    <td>${cell(e,e.as1)}</td><td>${cell(e,e.cosA)}</td><td>${cell(e,e.totalCos)}</td>
+    <td>${cell(e,e.sources.mes&&e.sources.mes.Discard)}</td><td>${cell(e,e.discardReason)}</td><td>${cell(e,e.handling)}</td>
+    <td>${cell(e,e.passRate,v=>v.toFixed(2)+"%")}</td><td>${cell(e,e.wbLoss)}</td><td>${cell(e,e.effWafer)}</td>
+    <td>${e.confidence}%</td><td><span class="link" onclick="openEvent('${e.id}')">${e.status.includes("CONFLICT")?"Review":"View"}</span></td></tr>`).join("");
+  return header("数据核对","Data Reconciliation",ICONS.recon)+`
+  <div style="margin-bottom:12px"><button class="btn ghost" onclick="exportOne('recon')">📥 Export to Excel</button></div>
+  <div class="card scrollx"><table><thead><tr><th>Event ID</th><th>LTS</th><th>Date</th><th>Machine</th><th>Data Origin</th><th>Status</th><th>Employee</th><th>Employee Type</th>
+  <th>AS1 (Cosmetics AS)</th><th>A- (色差)</th><th>Total Cosmetics</th><th>Discard (mm)</th><th>Discard Reason</th><th>Handling Method</th><th>1st-Pass Rate</th><th>Wire Break Loss</th><th>Effective Wafer</th><th>Conf.</th><th>Action</th></tr></thead>
+  <tbody>${rows}</tbody></table></div>
+  <p class="sub" style="margin-top:10px">Data Origin: any LTS found in MES is reported as MES Production Data; otherwise it is attributed to the manual source(s). MES columns show "No info in MES" when the LTS has no MES record. Employee type: MES rescuer name in English = Local, in Mandarin = China Support; Chinese list = China Support; Local list ID number = Local, CST = China Support.</p>`;
+}
+
+function srcCard(title,rec,matched){
+  if(!rec) return `<div class="src"><b>${title}</b><div style="color:var(--ink2);margin-top:4px">— NO MATCHING RECORD FOUND</div></div>`;
+  return `<div class="src ok"><b>${title}</b> <span class="chip" style="margin-left:6px">${matched?"✓ MATCHED":"single source"}</span>
+    <div style="margin-top:6px;color:var(--ink2)">LTS ${rec.LTS} · Machine ${rec.Machine||"—"} · Discard ${rec.Discard}mm · Cause ${rec.Cause||"—"} · Action ${rec.Action||"—"}${(rec.Emp||rec.EmpName)?" · Employee "+(rec.EmpName||rec.Emp):""}</div></div>`;
+}
+function pageEventDetail(){
+  const e=state.selectedEvent&&state.events.find(x=>x.id===state.selectedEvent);
+  if(!e) return header("断线事件明细","Breakage Event Details",ICONS.eventdetail)+emptyState("Select an event from Data Reconciliation or LTS Search.");
+  const n=[e.sources.mes,e.sources.chi,e.sources.loc].filter(Boolean).length; const m=!!e.sources.mes;
+  const res=(m&&e.totalCos!=null)?(e.totalCos>CFG.cosThreshold?'<span class="badge b-conf">NOT SUCCESS</span>':'<span class="badge b-mes">SUCCESS</span>'):'<span class="nomes">No info in MES</span>';
+  const v=x=>m?(x==null?"—":x):'<span class="nomes">No info in MES</span>';
+  return header("断线事件明细","Breakage Event Details",ICONS.eventdetail)+`
+  <div class="card" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div><b style="font-size:16px">${e.id}</b><div class="sub">Date ${e.date||"—"} · Shift ${e.shift||"—"} · Machine ${e.machine||"—"} · LTS <span class="link" onclick="searchLTS('${e.lts}')">${e.lts}</span></div></div>
+    <span class="badge ${badgeClass(e.status)}">${e.status}</span></div></div>
+  <div class="row">
+    <div class="card" style="flex:1;min-width:240px"><b>Recovery Information</b><table style="margin-top:8px">
+      <tr><td>Employee Type</td><td>${typeBadge(e.empType)}</td></tr><tr><td>Employee</td><td>${e.empName||e.empId||"—"}</td></tr>
+      <tr><td>Root Cause</td><td>${e.cause||"—"}</td></tr><tr><td>Recovery Action</td><td>${e.action||"—"}</td></tr><tr><td>Discard Length</td><td>${e.discard} mm</td></tr></table></div>
+    <div class="card" style="flex:1;min-width:240px"><b>Quality Result (MES)</b><table style="margin-top:8px">
+      <tr><td>Grade A</td><td>${v(e.gradeA)}</td></tr><tr><td>AS1 (Cosmetics AS)</td><td>${v(e.as1)}</td></tr><tr><td>A- (色差)</td><td>${v(e.cosA)}</td></tr>
+      <tr><td>Total Cosmetics</td><td>${v(e.totalCos)}</td></tr><tr><td>Recovery Result</td><td>${res}</td></tr></table></div>
+  </div>
+  <div class="card" style="margin-top:14px"><b>Source Traceability</b><div class="trace" style="margin-top:10px">
+    ${srcCard("MES RECORD",e.sources.mes,n>1)}${srcCard("CHINESE MANUAL RECORD",e.sources.chi,n>1)}${srcCard("LOCAL MANUAL RECORD",e.sources.loc,n>1)}</div>
+    <p style="color:var(--ink2)">Match confidence for this event: <b>${e.confidence}%</b>. Source records above are never deleted or overwritten.</p></div>`;
+}
+
+function openEvent(id){ state.selectedEvent=id; state.page="eventdetail"; render(); }
+
+function pageLTS(){
+  const matches = state.ltsQuery ? state.events.filter(e=>e.lts===state.ltsQuery.trim().toUpperCase()) : [];
+  return header("LTS追溯查询","LTS Traceability Search",ICONS.ltssearch)+`
+  <div class="card">
+    <div style="display:flex;gap:8px">
+      <input type="text" id="ltsInput" placeholder="Enter LTS / Beam ID" value="${state.ltsQuery}" style="flex:1">
+      <button class="btn" onclick="searchLTS(document.getElementById('ltsInput').value)">Search</button>
+    </div>
+  </div>
+  ${state.ltsQuery?`
+  <div class="card" style="margin-top:14px">
+    <b>LTS ${state.ltsQuery} — Total Breakage Events: ${matches.length}</b>
+    ${matches.length? `<table style="margin-top:10px"><thead><tr><th>Event</th><th>Date</th><th>Cause</th><th>Discard</th><th>Employee</th><th>Source</th></tr></thead><tbody>
+    ${matches.map(e=>`<tr><td><span class="link" onclick="openEvent('${e.id}')">${e.id}</span></td><td>${e.date||"—"}</td><td>${e.cause||"—"}</td><td>${e.discard}mm</td><td>${e.empName||e.empId||"—"}</td><td>${e.source.join("+")}</td></tr>`).join("")}
+    </tbody></table>` : '<p style="color:var(--ink2)">No events found for this LTS.</p>'}
+  </div>`:""}`;
+}
+function searchLTS(v){ state.ltsQuery=v; state.page="ltssearch"; render(); }
+
+function pageRootCause(){
+  if(!state.events.length) return header("断线原因分析","Wire Break Root Cause Analysis",ICONS.rootcause)+emptyState("Process data first.");
+  const rows=causeRows(); const max=Math.max(...rows.map(r=>r.Events));
+  return header("断线原因分析","Wire Break Root Cause Analysis",ICONS.rootcause)+`
+  <div class="card"><b>Pareto Chart</b><div style="margin-top:12px">
+  ${rows.map(r=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <div style="width:150px;font-size:12px;color:var(--ink2)" title="${r.RootCause}">${r.RootCause}</div>
+    <div style="flex:1;background:var(--grey-bg);border-radius:4px;height:16px"><div style="width:${(r.Events/max)*100}%;background:var(--cyan);height:100%;border-radius:4px"></div></div>
+    <div style="width:110px;font-size:12px">${r.Events} · ${r.Percent}%</div></div>`).join("")}
+  </div></div>
+  <div class="card" style="margin-top:14px"><table><thead><tr><th>Root Cause</th><th>Events</th><th>%</th><th>Cumulative %</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr><td>${r.RootCause}</td><td>${r.Events}</td><td>${r.Percent}%</td><td>${r.CumulativePercent}%</td></tr>`).join("")}</tbody></table></div>
+  <button class="btn ghost" style="margin-top:12px" onclick="exportOne('rootcause')">Export to Excel</button>`;
+}
+function pageRecovery(){
+  if(!state.events.length) return header("挽救措施分析","Recovery Action Analysis",ICONS.recovery)+emptyState("Process data first.");
+  const rows=actionRows();
+  return header("挽救措施分析","Recovery Action Analysis",ICONS.recovery)+`
+  <div class="card scrollx"><table><thead><tr><th>Recovery Action</th><th>Events</th><th>Evaluated (MES)</th><th>Not Success</th><th>Success Rate</th><th>Total Cosmetics</th><th>Avg Discard</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr><td>${r.RecoveryAction}</td><td>${r.Events}</td><td>${r.EvaluatedWithMES}</td><td>${r.NotSuccess}</td><td>${r.SuccessRate_pct}${r.SuccessRate_pct!=="n/a"?"%":""}</td><td>${r.TotalCosmetics}</td><td>${r.AvgDiscard_mm} mm</td></tr>`).join("")}</tbody></table></div>
+  <button class="btn ghost" style="margin-top:12px" onclick="exportOne('recovery')">Export to Excel</button>`;
+}
+function pageEmployee(){
+  if(!state.events.length) return header("中方 vs 本地员工分析","China Support vs Local Employee Analysis",ICONS.employee)+emptyState("Process data first.");
+  const rows=employeeRows();
+  return header("中方 vs 本地员工分析","China Support vs Local Employee Analysis",ICONS.employee)+`
+  <p class="sub" style="margin-bottom:12px">Presented neutrally by volume, output, quality and loss — no group is labeled better or worse.</p>
+  <div class="card scrollx"><table><thead><tr><th>Employee Type</th><th>Recovery Events</th><th>Share</th><th>Evaluated (MES)</th><th>Not Success</th><th>Success Rate</th><th>AS1</th><th>A-</th><th>Total Cosmetics</th><th>Total Discard</th><th>Avg Discard</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr><td>${typeBadge(r.EmployeeType)}</td><td>${r.RecoveryEvents}</td><td>${r.RecoveryShare_pct}%</td><td>${r.EvaluatedWithMES}</td><td>${r.NotSuccess}</td><td>${r.SuccessRate_pct}${r.SuccessRate_pct!=="n/a"?"%":""}</td><td>${r.AS1}</td><td>${r.CosmeticA_minus}</td><td>${r.TotalCosmetics}</td><td>${r.TotalDiscard_mm} mm</td><td>${r.AvgDiscard_mm} mm</td></tr>`).join("")}</tbody></table></div>
+  <button class="btn ghost" style="margin-top:12px" onclick="exportOne('employee')">Export to Excel</button>`;
+}
+
+function pageDataQuality(){
+  if(!state.events.length && !state.mes.length) return header("MES数据完整性","Data Quality Monitoring",ICONS.dataquality)+emptyState("Upload or process data first.");
+  const rows=qualityRows(); const k=kpis(); const gaps=gapRows();
+  return header("MES数据完整性","Data Quality Monitoring",ICONS.dataquality)+`
+  <div class="row">
+    <div class="card" style="flex:1;min-width:220px">${donut(k.completeness,"MES Completeness",k.mesLTS+" of "+k.totalLTS+" LTS recorded by MES")}</div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));flex:2">
+    ${rows.map(r=>`<div class="card kpi"><div class="t">${r.Metric}</div><div class="n" style="font-size:20px">${r.Value}</div></div>`).join("")}
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <b>Where MES fell short — LTS with no MES record</b>
+    <p class="sub" style="margin:6px 0 10px">These wire-break events exist only because a manual record caught them; MES has zero rows for these LTS values.</p>
+    ${gaps.length? `<table><thead><tr><th>LTS</th><th>Date</th><th>Root Cause</th><th>Discard</th><th>Employee</th><th>Source</th></tr></thead><tbody>
+    ${gaps.map(g=>`<tr><td><span class="link" onclick="searchLTS('${g.LTS}')">${g.LTS}</span></td><td>${g.Date||"—"}</td><td>${g.RootCause}</td><td>${g.Discard_mm}mm</td><td>${g.Employee}</td><td>${g.Source}</td></tr>`).join("")}
+    </tbody></table>` : '<p class="sub">No gaps — every LTS reported by manual records was also recorded in MES.</p>'}
+  </div>
+  <button class="btn ghost" style="margin-top:14px" onclick="exportOne('quality')">Export Data Quality</button>
+  <button class="btn ghost" style="margin-top:14px" onclick="exportOne('gaps')">Export MES Gaps</button>`;
+}
+function pageExport(){
+  return header("数据导出","Export",ICONS.export)+`
+  <div class="card">
+    <b>Export Reports</b>
+    <p class="sub" style="margin:6px 0 14px">Each export writes an .xlsx file from the current in-browser dataset. Chart visuals aren't embedded as images — the underlying numbers each chart is built from are exported as sheets, ready to chart again in Excel.</p>
+    <div class="row">
+      <button class="btn" onclick="exportAll()">Export All (one workbook, 7 sheets)</button>
+      <button class="btn ghost" onclick="exportOne('events')">Final Events</button>
+      <button class="btn ghost" onclick="exportOne('recon')">Reconciliation Report</button>
+      <button class="btn ghost" onclick="exportOne('quality')">Data Quality Report</button>
+      <button class="btn ghost" onclick="exportOne('gaps')">MES Gaps</button>
+      <button class="btn ghost" onclick="exportOne('dashboard')">Dashboard Summary</button>
+      <button class="btn ghost" onclick="exportOne('rootcause')">Root Cause Analysis</button>
+      <button class="btn ghost" onclick="exportOne('recovery')">Recovery Analysis</button>
+      <button class="btn ghost" onclick="exportOne('employee')">Employee Analysis</button>
+    </div>
+  </div>`;
+}
+
+function num(v){ if(v==null) return null; const s=String(v).replace(/[%,\s]/g,""); if(s==="") return null; const n=Number(s); return isNaN(n)?null:n; }
+function hasCJK(s){ return /[\u4e00-\u9fff]/.test(String(s||"")); }
+function typeBadge(t){ return `<span class="badge ${t==="China Support"?"b-dup":t==="Local"?"b-manual":"b-unm"}">${t}</span>`; }
+
+function evalStats(events){
+  const ev=events.filter(e=>e.sources.mes&&e.totalCos!=null);
+  const fail=ev.filter(e=>e.totalCos>CFG.cosThreshold);
+  const sum=k=>ev.reduce((s,e)=>s+(e[k]||0),0);
+  return {n:events.length,evaluable:ev.length,success:ev.length-fail.length,fail:fail.length,as1:sum("as1"),cosA:sum("cosA"),
+    totalCos:sum("totalCos"),gradeA:sum("gradeA"),eff:sum("effWafer"),rate:ev.length?((ev.length-fail.length)/ev.length*100):null};
+}
+function notSuccessEvents(events){ return (events||state.events).filter(e=>e.sources.mes&&e.totalCos!=null&&e.totalCos>CFG.cosThreshold).sort((a,b)=>b.totalCos-a.totalCos); }
+function notSuccessRows(events){ return notSuccessEvents(events).map(e=>({EventID:e.id,LTS:e.lts,Date:e.date,Machine:e.machine,ProductType:e.productType||"",
+  Employee:e.empName||e.empId||"",EmployeeType:e.empType,RootCause:e.cause,RecoveryAction:e.action,DiscardLength_mm:e.discard,
+  AS1:e.as1,CosmeticA_minus:e.cosA,TotalCosmetics:e.totalCos})); }
+function isoWeek(ds){ const d=new Date(ds+"T00:00:00Z"); const dn=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-dn+3);
+  const ft=new Date(Date.UTC(d.getUTCFullYear(),0,4)); return 1+Math.round(((d-ft)/86400000-3+((ft.getUTCDay()+6)%7))/7); }
+function periodInfo(ds){ if(!ds||!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return null;
+  if(state.gran==="week"){ const w=isoWeek(ds); return {key:ds.slice(0,4)+"-W"+String(w).padStart(2,"0"),label:"WW"+w}; }
+  return {key:ds,label:ds.slice(5)}; }
+function groupPeriods(events){ const m={}; events.forEach(e=>{const p=periodInfo(e.date); if(!p) return; (m[p.key]=m[p.key]||{key:p.key,label:p.label,events:[]}).events.push(e);});
+  return Object.values(m).sort((a,b)=>a.key<b.key?-1:1); }
+function productTypes(events){ const c={}; events.filter(e=>e.sources.mes&&e.totalCos!=null&&e.productType).forEach(e=>c[e.productType]=(c[e.productType]||0)+1);
+  return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,4).map(x=>x[0]); }
+function cosmeticSeries(events,product){
+  const ps=groupPeriods(events.filter(e=>e.sources.mes&&e.totalCos!=null&&(!product||e.productType===product)));
+  const out={labels:[],shippable:[],downgrade:[],total:[]};
+  ps.forEach(p=>{ const s=evalStats(p.events); const den=s.eff>0?s.eff:(s.gradeA+s.totalCos); const r=n=>den?+(n/den*100).toFixed(2):null;
+    out.labels.push(p.label); out.shippable.push(r(s.as1)); out.downgrade.push(r(s.cosA)); out.total.push(r(s.totalCos)); });
+  return out; }
+function recoverySeries(events){
+  const ps=groupPeriods(events); const rate=s=>s.rate==null?null:+s.rate.toFixed(1);
+  const o={labels:[],chiN:[],locN:[],totN:[],chiRate:[],locRate:[],share:[]};
+  ps.forEach(p=>{ const c=p.events.filter(e=>e.empType==="China Support"), l=p.events.filter(e=>e.empType==="Local");
+    o.labels.push(p.label); o.chiN.push(c.length); o.locN.push(l.length); o.totN.push(p.events.length);
+    o.chiRate.push(rate(evalStats(c))); o.locRate.push(rate(evalStats(l))); o.share.push(p.events.length?+(l.length/p.events.length*100).toFixed(1):null); });
+  return o; }
+function trendSheets(events){ const sheets=[]; const rs=recoverySeries(events);
+  productTypes(events).forEach(p=>{ const s=cosmeticSeries(events,p); sheets.push({name:"Cosmetic Trend "+p,rows:s.labels.map((l,i)=>({Period:l,Shippable_AS1_pct:s.shippable[i],Downgrade_A_minus_pct:s.downgrade[i],Total_pct:s.total[i],Target_pct:CFG.cosTarget}))}); });
+  sheets.push({name:"Local vs China Trend",rows:rs.labels.map((l,i)=>({Period:l,ChinaSupport_Events:rs.chiN[i],Local_Events:rs.locN[i],Total_Events:rs.totN[i],
+    LocalShare_pct:rs.share[i],ChinaSupport_SuccessRate_pct:rs.chiRate[i],Local_SuccessRate_pct:rs.locRate[i],Target_pct:CFG.successTarget}))});
+  return sheets; }
+function killCharts(){ charts.forEach(c=>{try{c.destroy();}catch(e){}}); charts=[]; }
+function mkChart(id,cfg){ const el=document.getElementById(id); if(el) charts.push(new Chart(el,cfg)); }
+function drawDashboardCharts(ev){
+  if(typeof Chart==="undefined"){ document.querySelectorAll(".chartbox").forEach(b=>b.innerHTML='<div class="sub">Charts need internet access to load the chart library (cdnjs.cloudflare.com).</div>'); return; }
+  const cs=getComputedStyle(document.documentElement);
+  window._halo=(cs.getPropertyValue("--card")||"#fff").trim();
+  if(!window._vl){ Chart.register({id:"valueLabels",afterDatasetsDraw(chart){
+    const ctx=chart.ctx, area=chart.chartArea, placed={};
+    ctx.save(); ctx.font="bold 10px sans-serif"; ctx.textAlign="center"; ctx.lineJoin="round";
+    chart.data.datasets.forEach((ds,i)=>{ if(!ds.showLabels) return; const meta=chart.getDatasetMeta(i); if(meta.hidden) return;
+      const dy=ds.labelDy==null?-8:ds.labelDy, up=dy<=0;
+      meta.data.forEach((el,j)=>{ const v=ds.data[j]; if(v==null||isNaN(v)) return;
+        let y=ds.labelPos==="base"?(el.base!=null?el.base-4:area.bottom-4):el.y+dy;
+        const used=placed[j]=placed[j]||[]; let g=0;
+        while(used.some(p=>Math.abs(p-y)<11)&&g++<8) y+=up?-11:11;      /* push apart so labels never stack */
+        y=Math.max(area.top+8,Math.min(area.bottom-2,y)); used.push(y);
+        const t=ds.fmt?ds.fmt(v):String(v);
+        ctx.lineWidth=3; ctx.strokeStyle=window._halo; ctx.strokeText(t,el.x,y);
+        ctx.fillStyle=ds.labelColor||"#333"; ctx.fillText(t,el.x,y); }); });
+    ctx.restore(); }}); window._vl=1; }
+  Chart.defaults.font.family="Nunito,'Segoe UI',sans-serif"; Chart.defaults.color=(cs.getPropertyValue("--ink2")||"#5b6b78").trim(); Chart.defaults.borderColor="rgba(128,128,128,.18)";
+  const base=(t,legendFilter)=>({responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},layout:{padding:{top:14,right:6}},
+    datasets:{bar:{barPercentage:.85,categoryPercentage:.8,maxBarThickness:34}},
+    plugins:{title:{display:true,text:t,font:{size:14,weight:"bold"}},
+      legend:{position:"bottom",labels:{usePointStyle:true,boxWidth:12,boxHeight:8,padding:14,filter:legendFilter||undefined}}}});
+  const pct2=v=>v.toFixed(2)+"%", pct0=v=>Math.round(v)+"%", cnt=v=>v;
+  const bar=(o)=>Object.assign({type:"bar",order:1,pointStyle:"rect",borderWidth:1},o);
+  const line=(o)=>Object.assign({type:"line",order:0,pointStyle:"line",borderWidth:2.5,pointRadius:3,pointHoverRadius:5,tension:0},o);
+  /* 1) Cosmetic trend per product: legend shows only Shippable / Downgrade, like the reference */
+  productTypes(ev).forEach((p,i)=>{ const s=cosmeticSeries(ev,p);
+    const o=base("Cosmetic Trend – "+p+" ("+(state.gran==="week"?"weekly":"daily")+")",it=>/^(Shippable|Downgrade)/.test(it.text));
+    o.scales={y:{beginAtZero:true,grace:"12%",title:{display:true,text:"RATE%"},ticks:{callback:v=>v+"%"}}};
+    mkChart("cosChart"+i,{type:"bar",options:o,data:{labels:s.labels,datasets:[
+      line({label:"Total Cosmetics",data:s.total,borderColor:"#8a93a6",pointBackgroundColor:"#0f2138",showLabels:true,fmt:pct2,labelColor:"#0f2138",labelDy:-10}),
+      line({label:"Target "+CFG.cosTarget+"%",data:s.labels.map(()=>CFG.cosTarget),borderColor:"#f0b400",borderWidth:2,pointRadius:0,pointHoverRadius:0}),
+      bar({label:"Shippable (AS1)",data:s.shippable,backgroundColor:"#b5d99c",borderColor:"#5b8f3a"}),
+      bar({label:"Downgrade (A-)",data:s.downgrade,backgroundColor:"#e02020",borderColor:"#e02020",showLabels:true,fmt:pct2,labelColor:"#c23b3b",labelDy:-6})]}}); });
+  /* 2 & 3) Recovery charts: bars behind (order 1), lines in front (order 0), bar counts printed at the bar base */
+  const r=recoverySeries(ev); const tgt=r.labels.map(()=>CFG.successTarget);
+  const y2={position:"right",min:0,max:100,grid:{drawOnChartArea:false},ticks:{callback:v=>v+"%"}};
+  const o2=base("本地 vs 中方 挽救刀次与成功率 · Local vs China Support"); o2.scales={y:{beginAtZero:true,grace:"8%",title:{display:true,text:"Recovery events"}},y2};
+  mkChart("recChart1",{type:"bar",options:o2,data:{labels:r.labels,datasets:[
+    bar({label:"中方 China Support events",data:r.chiN,backgroundColor:"#f2d200",borderColor:"#b39b00",yAxisID:"y",showLabels:true,fmt:cnt,labelColor:"#6b5d00",labelPos:"base"}),
+    bar({label:"本地 Local events",data:r.locN,backgroundColor:"#8fcf7a",borderColor:"#4c9a38",yAxisID:"y",showLabels:true,fmt:cnt,labelColor:"#24581a",labelPos:"base"}),
+    line({label:"中方 成功率",data:r.chiRate,borderColor:"#1e90ff",pointBackgroundColor:"#1e90ff",yAxisID:"y2",spanGaps:true,showLabels:true,fmt:pct0,labelColor:"#1a63b3",labelDy:-9}),
+    line({label:"本地 成功率",data:r.locRate,borderColor:"#00a99d",pointBackgroundColor:"#00a99d",yAxisID:"y2",spanGaps:true,showLabels:true,fmt:pct0,labelColor:"#007a71",labelDy:15}),
+    line({label:"目标 Target "+CFG.successTarget+"%",data:tgt,borderColor:"#e02020",borderWidth:3,pointRadius:0,pointHoverRadius:0,yAxisID:"y2"})]}});
+  const o3=base("本地员工挽救占比及成功率 · Local Share & Success Rate"); o3.scales={y:{beginAtZero:true,grace:"8%",title:{display:true,text:"Recovery events"}},y2};
+  mkChart("recChart2",{type:"bar",options:o3,data:{labels:r.labels,datasets:[
+    bar({label:"本地挽救数量 Local events",data:r.locN,backgroundColor:"#a9d18e",borderColor:"#5b8f3a",yAxisID:"y",showLabels:true,fmt:cnt,labelColor:"#24581a",labelPos:"base"}),
+    bar({label:"总数 Total events",data:r.totN,backgroundColor:"#f2d200",borderColor:"#b39b00",yAxisID:"y",showLabels:true,fmt:cnt,labelColor:"#6b5d00",labelPos:"base"}),
+    line({label:"本地比例 Local share",data:r.share,borderColor:"#e02020",borderDash:[5,4],pointBackgroundColor:"#e02020",pointRadius:2.5,yAxisID:"y2",spanGaps:true,showLabels:true,fmt:pct0,labelColor:"#c23b3b",labelDy:15}),
+    line({label:"本地成功率 Local success",data:r.locRate,borderColor:"#1e90ff",pointBackgroundColor:"#1e90ff",yAxisID:"y2",spanGaps:true,showLabels:true,fmt:pct0,labelColor:"#1a63b3",labelDy:-9}),
+    line({label:"成功率目标 Target "+CFG.successTarget+"%",data:tgt,borderColor:"#e02020",borderWidth:3,pointRadius:0,pointHoverRadius:0,yAxisID:"y2"})]}});
+}
+function setGran(g){ state.gran=g; render(); }
+const TIPS=["Keep going! Every recovery counts! 💪","Small recovery, big impact! ✨","Record the truth! 📝","Data tells the real story! 📊","Less discard, more wafers! 🔪","Diamond wire loves steady tension! 💎"];
+function mascot(s){ s=s||90; return `<svg class="mascot" width="${s}" height="${Math.round(s*1.1)}" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="wc"><circle cx="50" cy="64" r="33"/></clipPath></defs><ellipse cx="50" cy="104" rx="26" ry="4" fill="rgba(15,33,56,.18)"/><circle cx="50" cy="64" r="33" fill="#cfdcf0" stroke="#7c93b8" stroke-width="3"/><g clip-path="url(#wc)" stroke="#a9bbd6" stroke-width="1.2"><path d="M34 30v70M50 30v70M66 30v70M17 48h66M17 64h66M17 80h66"/></g><circle cx="39" cy="64" r="4.5" fill="#1b2a41"/><circle cx="61" cy="64" r="4.5" fill="#1b2a41"/><circle cx="40.5" cy="62.5" r="1.5" fill="#fff"/><circle cx="62.5" cy="62.5" r="1.5" fill="#fff"/><ellipse cx="31" cy="73" rx="5" ry="3" fill="#ff9db1" opacity=".75"/><ellipse cx="69" cy="73" rx="5" ry="3" fill="#ff9db1" opacity=".75"/><path d="M43 73q7 7 14 0" stroke="#1b2a41" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M21 46q0-28 29-28t29 28z" fill="#ffc400" stroke="#d99a00" stroke-width="2.5"/><rect x="43" y="18" width="14" height="27" fill="#ffdf6b"/><rect x="15" y="43" width="70" height="8" rx="4" fill="#ffd23f" stroke="#d99a00" stroke-width="2.5"/></svg>`; }
+function machineSVG(){ let w=""; for(let x=70;x<=170;x+=5) w+=`<line x1="${x}" y1="84" x2="${x}" y2="158"/>`;
+  return `<svg class="machine" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg"><ellipse cx="180" cy="200" rx="165" ry="10" fill="rgba(15,33,56,.15)"/><rect x="24" y="44" width="216" height="146" rx="18" fill="#f4f8ff" stroke="#9fb3d6" stroke-width="3"/><rect x="24" y="36" width="216" height="28" rx="12" fill="#2f5fa8"/><text x="132" y="55" text-anchor="middle" font-size="13" font-weight="800" fill="#fff" font-family="Nunito,sans-serif">DIAMOND WIRE SAW</text><rect x="46" y="76" width="140" height="92" rx="12" fill="#1f3556"/><rect class="ingot" x="82" y="96" width="68" height="56" rx="5" fill="#7d93b5" stroke="#b8c8e2" stroke-width="2"/><g class="wires" stroke="#ffe27a" stroke-width="1.3">${w}</g><circle cx="66" cy="90" r="8" fill="#c9d6ea"/><circle cx="166" cy="90" r="8" fill="#c9d6ea"/><circle cx="66" cy="154" r="8" fill="#c9d6ea"/><circle cx="166" cy="154" r="8" fill="#c9d6ea"/><rect x="198" y="76" width="30" height="92" rx="10" fill="#e3ecff" stroke="#9fb3d6" stroke-width="2"/><circle cx="207" cy="98" r="3.2" fill="#1b2a41"/><circle cx="220" cy="98" r="3.2" fill="#1b2a41"/><path d="M205 108q7 7 16 0" stroke="#1b2a41" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="213" cy="132" r="6" fill="#ff8a8a"/><circle cx="213" cy="152" r="6" fill="#6ee7a8"/><g class="stack"><rect x="262" y="142" width="78" height="14" rx="6" fill="#3d4d69"/><rect x="262" y="128" width="78" height="14" rx="6" fill="#4b5d7c"/><rect x="266" y="114" width="70" height="14" rx="6" fill="#5b6f92"/><rect x="262" y="100" width="78" height="14" rx="6" fill="#4b5d7c"/><rect x="266" y="86" width="70" height="14" rx="6" fill="#5b6f92"/></g><text x="300" y="178" text-anchor="middle" font-size="11" font-weight="800" fill="#5b6b78" font-family="Nunito,sans-serif">WAFERS ✨</text></svg>`; }
+function heroFor(page){
+  if(page!=="dashboard"&&page!=="upload") return "";
+  state.tip=((state.tip||0)+1)%TIPS.length; const has=state.events.length;
+  const c=(cls,ic,t,v)=>`<div class="ov ${cls}"><span class="ovi">${ic}</span><div><small>${t}</small><b>${v}</b></div></div>`;
+  let right;
+  if(page==="dashboard"){ const k=has?kpis(state.events):null;
+    right=`<div class="ovwrap"><div class="ovh">✨ Today's Overview</div><div class="ovgrid">${c("g","🔧","Wire Break Cases",has?k.total:"—")}${c("b","💪","Success Rate",has&&k.successRate!=="n/a"?k.successRate+"%":"—")}${c("r","🚨","Action Required",has?k.st.fail:"—")}${c("o","🛰️","MES Complete",has?k.completeness+"%":"—")}</div></div>`; }
+  else right=`<div class="ovwrap"><div class="ovh">🍽️ Feed the machine!</div><div class="ovgrid">${c("b","🏭","MES rows",state.mes.length)}${c("o","🇨🇳","China list",state.chinese.length)}${c("g","🏠","Local list",state.local.length)}${c("r","🧾","Events",state.events.length)}</div></div>`;
+  return `<div class="hero"><div><div class="chips"><span>Better Recovery</span><span>Less Discard</span><span>Higher Yield</span></div><h2>${page==="upload"?"Paste your lists below 📋":"Hi, Engineer! 👷"}</h2>
+    <div class="herol">${mascot(92)}<div class="bubble2">${TIPS[state.tip]}</div></div></div>
+    <div style="text-align:center"><span class="mlabel">🟢 Production Line · Wafer Cutting</span>${machineSVG()}</div>${right}</div>`;
+}
+function decorate(){ const b=document.getElementById("brandic"); if(b) b.innerHTML=mascot(40);
+  const f=document.getElementById("sidefoot"); if(f) f.innerHTML=`<div class="bubble">Small Recovery,<br>Big Impact! 💖</div>${mascot(84)}`; }
+function render(){
+  saveState();
+  killCharts(); nav(); decorate();
+  const m=document.getElementById("main");
+  const map={upload:pageUpload,recon:pageRecon,dashboard:pageDashboard,eventdetail:pageEventDetail,ltssearch:pageLTS,
+    rootcause:pageRootCause,recovery:pageRecovery,employee:pageEmployee,dataquality:pageDataQuality,export:pageExport};
+  m.innerHTML=heroFor(state.page)+(map[state.page]||pageUpload)();
+  if(state.page==="dashboard"&&state.events.length) drawDashboardCharts(filteredEvents());
+}
+
+loadState();
+render();
+</script>
+</body>
+</html>
